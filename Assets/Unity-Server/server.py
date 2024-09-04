@@ -5,7 +5,10 @@ import cv2
 import numpy as np
 from threading import Thread, Event as ThreadEvent
 
+from time import sleep
+
 model = YOLO('yolov8s.pt')
+
 
 def clean_buffer(original_buffer):
     buffer = b''
@@ -75,22 +78,33 @@ def handle_socket_client(client_socket, addr):
             break
 
         # save the received image
-        # with open('images/{}.jpg'.format(counter), 'wb') as fw:
+        #with open('images/{}.jpg'.format(counter), 'wb') as fw:
         #     fw.write(buffer)
 
         nparr = np.frombuffer(buffer, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
+        
+        
         # For now, let's just display the received image
+        
+        print("-------------------------------------------------------------------------------------------------------------------")
         results = model.track(img, persist=True)
-
+        
         annotated_frame = results[0].plot()
+        print("Fuck you victor")
+        for result in results:
+            result.save_txt("output.txt",save_conf=False)
 
         # display results
         cv2.imshow('YOLOv8 Tracking', annotated_frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            
             break
+    
+        sleep(1.0)
+        
 
 
     client_socket.close()
@@ -120,6 +134,7 @@ def socket_server():
     server_socket.close()
 
 
+
 exit_socket_server_flag = ThreadEvent()
 
 socket_server_thread = Thread(target=socket_server)
@@ -130,6 +145,7 @@ while True:
     if input("press 'q' to exit\n") == 'q':
         # set flag to be able to terminate the socket server
         exit_socket_server_flag.set()
+        
         break
 
 # join threads
