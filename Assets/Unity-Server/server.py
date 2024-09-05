@@ -5,7 +5,12 @@ import cv2
 import numpy as np
 from threading import Thread, Event as ThreadEvent
 
+from time import sleep
+
 model = YOLO('yolov8s.pt')
+#fps part
+import time
+
 
 def clean_buffer(original_buffer):
     buffer = b''
@@ -30,7 +35,10 @@ def get_numeric_data(buffer):
 def handle_socket_client(client_socket, addr):
     logger = logging.getLogger("handle_socket_client")
     logger.info("connected to client: {}".format(addr))
-
+    
+    fps = 0
+    tau = time.time()
+    fps_counter = 0
     while True:
         # the payload is composed of two parts:
         # +---------------------------------+-----------------+
@@ -75,23 +83,59 @@ def handle_socket_client(client_socket, addr):
             break
 
         # save the received image
-        # with open('images/{}.jpg'.format(counter), 'wb') as fw:
+        #with open('images/{}.jpg'.format(counter), 'wb') as fw:
         #     fw.write(buffer)
 
         nparr = np.frombuffer(buffer, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
+        
+        
         # For now, let's just display the received image
-        results = model.track(img, persist=True)
-
+        
+        print("-------------------------------------------------------------------------------------------------------------------")
+        results = model.track(img, persist=True,)
+        
         annotated_frame = results[0].plot()
+        
+        print("Fuck you victor")
+        
 
         # display results
         cv2.imshow('YOLOv8 Tracking', annotated_frame)
+        
+        now = time.time()
+        if now > tau:  # avoid div0
+            fps = (fps*9 +1/(now-tau))/10
+            
+        for result in results:
+             result.save_txt("output.txt",save_conf=False)
+        
+        tau = now
+        fps_counter = round (fps_counter+fps)
+    
+        print("La lista es:")
+    
+        # for r in results:
+        #     print(r.verbose())
+        
+        summary= results[0].summary()
+        print(summary)
+        
+        print(fps,fps_counter)
+        
+        if (fps_counter%2)==0:
+            time.sleep(0.1)
+        
+            f=open("output.txt", "r+")
+            f.seek(0)
+            f.truncate
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            
             break
-
+    
+        
 
     client_socket.close()
     cv2.destroyAllWindows()
@@ -120,6 +164,7 @@ def socket_server():
     server_socket.close()
 
 
+
 exit_socket_server_flag = ThreadEvent()
 
 socket_server_thread = Thread(target=socket_server)
@@ -130,6 +175,7 @@ while True:
     if input("press 'q' to exit\n") == 'q':
         # set flag to be able to terminate the socket server
         exit_socket_server_flag.set()
+        
         break
 
 # join threads
